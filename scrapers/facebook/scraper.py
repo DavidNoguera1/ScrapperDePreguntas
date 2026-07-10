@@ -1,32 +1,15 @@
 import os
 import re
 import json
-import time
 import logging
+
 from playwright.sync_api import sync_playwright
+
+from core.filters import is_question
+from scrapers.facebook.extractors import extract_comments, extract_account_from_url as _extract_account_from_url
 
 
 LOGGER = logging.getLogger(__name__)
-
-
-QUESTION_PATTERN = re.compile(
-    r'\b(?:'
-    r'que\s*|qu[eé]\s*|qui[eé]n\s*|qui[eé]nes\s*|cu[aá]ndo\s*|d[oó]nde\s*|c[oó]mo\s*'
-    r'|cu[aá]l\s*|cu[aá]les\s*|cu[aá]nt[oas]\s*|cu[aá]nt[oa]s\s*'
-    r'|por\s+qu[eé]\s*|para\s+qu[eé]\s*|a\s+qu[eé]\s*'
-    r')|(\?)', re.IGNORECASE
-)
-
-
-COMMENT_SELECTORS = [
-    '[data-sigil="comment"]',
-    'div[class*="comment"]',
-    'article[class*="comment"]',
-    'div[role="article"]',
-    'div[class*="fbUserContent"]',
-    'div[class*="story_body_container"]',
-    'div[class*="inner"]',
-]
 
 
 class FacebookScraper:
@@ -77,7 +60,7 @@ class FacebookScraper:
                         more.click()
                         page.wait_for_timeout(2000)
 
-                comments = self._extract_comments(page)
+                comments = extract_comments(page)
                 LOGGER.info(
                     "Facebook | comentarios_extraidos=%s | url=%s",
                     len(comments), post_url,
@@ -92,40 +75,10 @@ class FacebookScraper:
                 browser.close()
 
         if only_questions:
-            comments = [c for c in comments if self._is_question(c)]
+            comments = [c for c in comments if is_question(c)]
 
         return comments
 
-    def _extract_comments(self, page):
-        all_texts = set()
-
-        for selector in COMMENT_SELECTORS:
-            elements = page.query_selector_all(selector)
-            for el in elements:
-                text = el.inner_text().strip()
-                if text and len(text) > 3:
-                    lines = [l.strip() for l in text.split("\n") if l.strip()]
-                    comment_text = "\n".join(lines[1:]) if len(lines) > 1 else lines[0] if lines else text
-                    all_texts.add(comment_text)
-            if all_texts:
-                break
-
-        if not all_texts:
-            try:
-                raw = page.evaluate("""() => {
-                    const items = document.querySelectorAll('[class*="comment"], [data-sigil*="comment"]');
-                    return Array.from(items).map(el => el.innerText).filter(t => t.trim().length > 3);
-                }""")
-                all_texts.update(raw or [])
-            except Exception:
-                pass
-
-        return sorted(all_texts)
-
-    def _is_question(self, text):
-        return bool(QUESTION_PATTERN.search(text))
-
     @staticmethod
     def extract_account_from_url(url):
-        m = re.search(r"facebook\.com/([^/?#]+)", url)
-        return m.group(1) if m else "Desconocido"
+        return _extract_account_from_url(url)
