@@ -10,7 +10,7 @@ QUESTION_PATTERN = re.compile(
     r"|\bqu[eé]\s+(?:es|hay|tal|significa|quier|pasa|necesit|debo|deb|"
     r"pued|hag|va[ya]|diferencia|requisito|paso|documento|tiempo|"
     r"cost[oó]|vale|opini[oó]n)"
-    r")|(\?)",
+    r")|(\?)|¿|❓",
     re.IGNORECASE,
 )
 

@@ -27,16 +27,19 @@ def extract_post_date(page):
 def expand_comments(page):
     patterns = (
         "load more comments", "view more comments", "view all comments",
-        "view replies", "load more replies",
+        "view all", "view replies", "load more replies",
         "cargar más comentarios", "ver más comentarios",
-        "ver todos los comentarios", "ver respuestas",
+        "ver todos los comentarios", "ver todos", "ver respuestas",
         "ver más respuestas",
     )
     stable_rounds = 0
     previous_count = -1
 
-    for _ in range(12):
-        comment_count = page.locator('a[href*="/c/"] time').count()
+    page.wait_for_timeout(2_000)
+
+    for _ in range(30):
+        current_count = page.locator('a[href*="/c/"] time').count()
+
         clicked = page.evaluate(
             """patterns => {
                 const normalized = value => String(value || '')
@@ -63,15 +66,38 @@ def expand_comments(page):
             patterns,
         )
 
-        if comment_count == previous_count and clicked == 0:
+        page.evaluate(
+            """() => {
+                const links = document.querySelectorAll('a[href*="/c/"]');
+                if (!links.length) return;
+                for (const link of links) {
+                    let el = link.parentElement;
+                    for (let i = 0; el && i < 20; i++) {
+                        const style = window.getComputedStyle(el);
+                        const overflow = (style.overflowY + style.overflow);
+                        if (overflow.includes('auto') || overflow.includes('scroll')) {
+                            el.scrollTop = el.scrollHeight;
+                            return;
+                        }
+                        el = el.parentElement;
+                    }
+                }
+                const container = document.querySelector('article') ||
+                                  document.querySelector('[role="dialog"]');
+                if (container) container.scrollTop = container.scrollHeight;
+            }"""
+        )
+
+        page.wait_for_timeout(1000)
+
+        if current_count > 0 and current_count == previous_count and clicked == 0:
             stable_rounds += 1
         else:
             stable_rounds = 0
-        if stable_rounds >= 2:
+        if stable_rounds >= 3:
             break
 
-        previous_count = comment_count
-        page.wait_for_timeout(700 if clicked else 350)
+        previous_count = current_count
 
 
 def extract_comments(page):

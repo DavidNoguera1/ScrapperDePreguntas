@@ -51,7 +51,7 @@ python main.py --instagram tramitex.es --months 1 --interest-only --output compe
 python main.py --instagram abogadodeextranjeria --months 1 --interest-only --output competenciaPau.csv
 
 # Solo preguntas
-python main.py --instagram abogadodeextranjeria --months 2 --questions-only --output preguntas.csv
+python main.py --instagram abogadodeextranjeria --months 1 --questions-only --output preguntas.csv
 
 # Todos los comentarios (sin filtros)
 python main.py --instagram abogadodeextranjeria --months 2 --no-interest-only --no-questions-only --output todos.csv
