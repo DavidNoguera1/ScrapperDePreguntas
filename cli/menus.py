@@ -7,15 +7,19 @@ from core.csv_handler import open_csv, append_csv, CSV_FILE
 from core.logger import LOGGER
 from scrapers.instagram.scraper import InstagramScraper
 from scrapers.tiktok.scraper import TikTokScraper
+from scrapers.tiktok.csv_rows import build_profile_video_row
 from scrapers.facebook.scraper import FacebookScraper
 
 
-def _parse_date_input(date_str):
+def _parse_date_input(date_str, end_of_day=False):
     """Parsea una fecha ingresada por el usuario (YYYY-MM-DD) a datetime con zona horaria UTC."""
     if not date_str:
         return None
     try:
-        return datetime.strptime(date_str.strip(), "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        parsed = datetime.strptime(date_str.strip(), "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        if end_of_day:
+            parsed = parsed.replace(hour=23, minute=59, second=59, microsecond=999999)
+        return parsed
     except ValueError:
         print(f"  [AVISO] Formato de fecha invalido: '{date_str}'. Usa YYYY-MM-DD.")
         return None
@@ -171,7 +175,7 @@ def menu_tiktok_profile():
     end_str = input("  Fecha fin (Enter = sin limite): ").strip()
 
     start_date = _parse_date_input(start_str)
-    end_date = _parse_date_input(end_str)
+    end_date = _parse_date_input(end_str, end_of_day=True)
 
     if start_date and end_date and start_date > end_date:
         print("  [AVISO] La fecha de inicio es posterior a la fecha fin. Se intercambian.")
@@ -186,27 +190,8 @@ def menu_tiktok_profile():
 
     try:
         videos = scraper.scrape_profile(username, start_date=start_date, end_date=end_date)
-        now = datetime.now()
         for v in videos:
-            row = {
-                "Dia": fmt_dia(now),
-                "Cuenta": username,
-                "Red Social": "TikTok",
-                "Tipo de publicacion": "Video",
-                "Enlace": v.get("url", ""),
-                "Comentario": v.get("title", ""),
-                "Tema principal": "",
-                "Mes": fmt_mes(now),
-                "Titulo": v.get("title", ""),
-                "Likes": v.get("likes", 0),
-                "Comentarios": v.get("comments", 0),
-                "Guardados": v.get("saves", 0),
-                "Compartidos": v.get("shares", 0),
-                "Reproducciones": v.get("plays", 0),
-                "Fecha publicacion": datetime.fromtimestamp(
-                    v.get("create_time", 0), tz=timezone.utc
-                ).strftime("%Y-%m-%d %H:%M:%S") if v.get("create_time") else "",
-            }
+            row = build_profile_video_row(username, v)
             all_results.append(row)
             append_csv(row)
 

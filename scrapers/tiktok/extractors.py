@@ -211,6 +211,7 @@ def parse_video_metrics(video):
     saves = stats.get("collectCount", 0)
     shares = stats.get("shareCount", 0)
     plays = stats.get("playCount", 0)
+    duration = _extract_duration(video, video_info)
 
     url = ""
     if video_id:
@@ -227,8 +228,29 @@ def parse_video_metrics(video):
         "saves": saves,
         "shares": shares,
         "plays": plays,
+        "duration": duration,
         "url": url,
     }
+
+
+def _extract_duration(video, video_info):
+    candidates = (
+        video_info.get("duration"),
+        video_info.get("durationSec"),
+        video_info.get("durationSeconds"),
+        video.get("duration"),
+    )
+    for value in candidates:
+        if value is None or value == "":
+            continue
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            continue
+
+    if video.get("imagePost") or video.get("imagePostInfo") or video.get("photoMode"):
+        return 0
+    return None
 
 
 def filter_videos_by_date(videos, start_date=None, end_date=None):
@@ -241,6 +263,14 @@ def filter_videos_by_date(videos, start_date=None, end_date=None):
     Returns:
         Lista filtrada de videos
     """
+    if end_date and (
+        end_date.hour,
+        end_date.minute,
+        end_date.second,
+        end_date.microsecond,
+    ) == (0, 0, 0, 0):
+        end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+
     filtered = []
     for v in videos:
         ct = v.get("create_time", 0)

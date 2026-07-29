@@ -133,7 +133,7 @@ class TikTokScraper:
             end_date: datetime opcional (inclusive) para filtrar por fecha
         Returns:
             Lista de dicts con: id, title, create_time, likes, comments,
-            saves, shares, plays, url
+            saves, shares, plays, duration, url
         """
         if "tiktok.com" in username:
             username = extract_username_from_url(username) or username

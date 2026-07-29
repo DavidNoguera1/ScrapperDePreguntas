@@ -96,10 +96,11 @@ def merge_csvs():
                 missing = [header for header in CSV_HEADERS if header not in df.columns]
                 if missing:
                     LOGGER.warning(
-                        "No se mergea %s: faltan columnas %s", filepath, missing
+                        "CSV %s sin columnas %s; se agregan vacias", filepath, missing
                     )
-                    print(f"  [AVISO] Se omite {files[idx]}: formato incompatible.")
-                    continue
+                    print(f"  [AVISO] {files[idx]} no tenia {missing}; se agregan vacias.")
+                    for header in missing:
+                        df[header] = ""
                 dfs.append(df[CSV_HEADERS])
             except Exception:
                 LOGGER.exception("No se pudo leer el CSV para merge: %s", filepath)

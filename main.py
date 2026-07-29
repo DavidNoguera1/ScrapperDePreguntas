@@ -1,16 +1,30 @@
 import argparse
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 from core.config import fmt_dia, fmt_mes, ask_yn
 from core.csv_handler import open_csv, append_csv, save_csv, merge_csvs, CSV_FILE
 from core.logger import setup_logging, LOG_FILE
 from cli.menus import menu_instagram, menu_tiktok, menu_tiktok_profile, menu_facebook
 from scrapers.instagram.scraper import InstagramScraper
+from scrapers.tiktok.csv_rows import build_profile_video_row
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _parse_cli_date(date_str, label, end_of_day=False):
+    if not date_str:
+        return None
+    try:
+        parsed = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        if end_of_day:
+            parsed = parsed.replace(hour=23, minute=59, second=59, microsecond=999999)
+        return parsed
+    except ValueError:
+        print(f"  [AVISO] Fecha {label} invalida: {date_str}")
+        return None
 
 
 def main():
@@ -55,6 +69,11 @@ def main():
         help="Filtrar preguntas y casos legales sustantivos (por defecto: si)",
     )
     parser.add_argument("--output", help="Nombre del archivo CSV de salida")
+    parser.add_argument(
+        "--visible",
+        action="store_true",
+        help="Abrir navegador visible para scrapers con Playwright (util si TikTok bloquea headless)",
+    )
     parser.add_argument("--merge", action="store_true", help="Mergear CSVs existentes")
     parser.add_argument(
         "--instagram-logout",
@@ -110,7 +129,7 @@ def main():
 
     if args.tiktok:
         from scrapers.tiktok.scraper import TikTokScraper
-        scraper = TikTokScraper()
+        scraper = TikTokScraper(headless=not args.visible)
         for url in args.tiktok:
             try:
                 comments = scraper.scrape_video_comments(url, only_questions=args.questions_only)
@@ -133,46 +152,19 @@ def main():
 
     if args.tiktok_profile:
         from scrapers.tiktok.scraper import TikTokScraper
-        from datetime import timezone as _tz
 
-        start_date = None
-        end_date = None
-        if args.start_date:
-            try:
-                start_date = datetime.strptime(args.start_date, "%Y-%m-%d").replace(tzinfo=_tz.utc)
-            except ValueError:
-                print(f"  [AVISO] Fecha inicio invalida: {args.start_date}")
-        if args.end_date:
-            try:
-                end_date = datetime.strptime(args.end_date, "%Y-%m-%d").replace(tzinfo=_tz.utc)
-            except ValueError:
-                print(f"  [AVISO] Fecha fin invalida: {args.end_date}")
+        start_date = _parse_cli_date(args.start_date, "inicio")
+        end_date = _parse_cli_date(args.end_date, "fin", end_of_day=True)
 
-        scraper = TikTokScraper()
+        scraper = TikTokScraper(headless=not args.visible)
         for acc in args.tiktok_profile:
             try:
                 username = acc.lstrip("@").strip()
                 if "tiktok.com" in username:
                     username = username.split("/@")[1].split("/")[0] if "/@" in username else username
                 videos = scraper.scrape_profile(username, start_date=start_date, end_date=end_date)
-                now = datetime.now()
                 for v in videos:
-                    row = {
-                        "Dia": fmt_dia(now),
-                        "Cuenta": username, "Red Social": "TikTok",
-                        "Tipo de publicacion": "Video", "Enlace": v.get("url", ""),
-                        "Comentario": v.get("title", ""), "Tema principal": "",
-                        "Mes": fmt_mes(now),
-                        "Titulo": v.get("title", ""),
-                        "Likes": v.get("likes", 0),
-                        "Comentarios": v.get("comments", 0),
-                        "Guardados": v.get("saves", 0),
-                        "Compartidos": v.get("shares", 0),
-                        "Reproducciones": v.get("plays", 0),
-                        "Fecha publicacion": datetime.fromtimestamp(
-                            v.get("create_time", 0), tz=_tz.utc
-                        ).strftime("%Y-%m-%d %H:%M:%S") if v.get("create_time") else "",
-                    }
+                    row = build_profile_video_row(username, v)
                     all_results.append(row)
                     append_csv(row)
                 print(f"  [OK] @{username}: {len(videos)} videos extraidos")

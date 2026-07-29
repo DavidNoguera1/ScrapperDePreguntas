@@ -11,7 +11,7 @@ DEFAULT_AUTH_FILE = BASE_DIR / "instagram_auth.json"
 
 CSV_HEADERS = [
     "Dia", "Cuenta", "Red Social", "Tipo de publicacion", "Enlace",
-    "Comentario", "Tema principal", "Mes",
+    "Comentario", "Tema principal", "Mes", "duracion",
     "Titulo", "Likes", "Comentarios", "Guardados", "Compartidos",
     "Reproducciones", "Fecha publicacion",
 ]
