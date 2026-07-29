@@ -6,7 +6,7 @@ from datetime import datetime
 from core.config import fmt_dia, fmt_mes, ask_yn
 from core.csv_handler import open_csv, append_csv, save_csv, merge_csvs, CSV_FILE
 from core.logger import setup_logging, LOG_FILE
-from cli.menus import menu_instagram, menu_tiktok, menu_facebook
+from cli.menus import menu_instagram, menu_tiktok, menu_tiktok_profile, menu_facebook
 from scrapers.instagram.scraper import InstagramScraper
 
 
@@ -17,6 +17,23 @@ def main():
     parser = argparse.ArgumentParser(description="Social Media Comment Scraper")
     parser.add_argument("--instagram", nargs="+", help="Cuentas de Instagram a scrapear")
     parser.add_argument("--tiktok", nargs="+", help="URLs de videos TikTok")
+    parser.add_argument(
+        "--tiktok-profile",
+        nargs="+",
+        help="Usuarios o URLs de perfiles de TikTok a scrapear (modo perfil)",
+    )
+    parser.add_argument(
+        "--start-date",
+        type=str,
+        default=None,
+        help="Fecha inicio para filtrar videos (YYYY-MM-DD)",
+    )
+    parser.add_argument(
+        "--end-date",
+        type=str,
+        default=None,
+        help="Fecha fin para filtrar videos (YYYY-MM-DD)",
+    )
     parser.add_argument("--facebook", nargs="+", help="URLs de posts de Facebook")
     parser.add_argument("--months", type=int, default=2, help="Meses hacia atras (default: 2)")
     parser.add_argument(
@@ -69,7 +86,7 @@ def main():
         return
 
     all_results = []
-    cli_extraction = any([args.instagram, args.tiktok, args.facebook])
+    cli_extraction = any([args.instagram, args.tiktok, args.tiktok_profile, args.facebook])
     if cli_extraction:
         open_csv(args.output)
 
@@ -114,6 +131,55 @@ def main():
                 LOGGER.exception("Error extrayendo video de TikTok: %s", url)
                 print(f"  [ERROR] {url}: {e}")
 
+    if args.tiktok_profile:
+        from scrapers.tiktok.scraper import TikTokScraper
+        from datetime import timezone as _tz
+
+        start_date = None
+        end_date = None
+        if args.start_date:
+            try:
+                start_date = datetime.strptime(args.start_date, "%Y-%m-%d").replace(tzinfo=_tz.utc)
+            except ValueError:
+                print(f"  [AVISO] Fecha inicio invalida: {args.start_date}")
+        if args.end_date:
+            try:
+                end_date = datetime.strptime(args.end_date, "%Y-%m-%d").replace(tzinfo=_tz.utc)
+            except ValueError:
+                print(f"  [AVISO] Fecha fin invalida: {args.end_date}")
+
+        scraper = TikTokScraper()
+        for acc in args.tiktok_profile:
+            try:
+                username = acc.lstrip("@").strip()
+                if "tiktok.com" in username:
+                    username = username.split("/@")[1].split("/")[0] if "/@" in username else username
+                videos = scraper.scrape_profile(username, start_date=start_date, end_date=end_date)
+                now = datetime.now()
+                for v in videos:
+                    row = {
+                        "Dia": fmt_dia(now),
+                        "Cuenta": username, "Red Social": "TikTok",
+                        "Tipo de publicacion": "Video", "Enlace": v.get("url", ""),
+                        "Comentario": v.get("title", ""), "Tema principal": "",
+                        "Mes": fmt_mes(now),
+                        "Titulo": v.get("title", ""),
+                        "Likes": v.get("likes", 0),
+                        "Comentarios": v.get("comments", 0),
+                        "Guardados": v.get("saves", 0),
+                        "Compartidos": v.get("shares", 0),
+                        "Reproducciones": v.get("plays", 0),
+                        "Fecha publicacion": datetime.fromtimestamp(
+                            v.get("create_time", 0), tz=_tz.utc
+                        ).strftime("%Y-%m-%d %H:%M:%S") if v.get("create_time") else "",
+                    }
+                    all_results.append(row)
+                    append_csv(row)
+                print(f"  [OK] @{username}: {len(videos)} videos extraidos")
+            except Exception as e:
+                LOGGER.exception("Error extrayendo perfil de TikTok: %s", acc)
+                print(f"  [ERROR] @{acc}: {e}")
+
     if args.facebook:
         from scrapers.facebook.scraper import FacebookScraper
         cookies = os.getenv("FACEBOOK_COOKIES_FILE")
@@ -138,28 +204,31 @@ def main():
                 LOGGER.exception("Error extrayendo post de Facebook: %s", url)
                 print(f"  [ERROR] {url}: {e}")
 
-    if not any([args.instagram, args.tiktok, args.facebook]):
+    if not any([args.instagram, args.tiktok, args.tiktok_profile, args.facebook]):
         while True:
             print("""
   --- MENU PRINCIPAL ---
     1. Instagram (por cuenta)
     2. TikTok (por URL de video)
-    3. Facebook (por URL de post)
-    4. Mergear CSVs existentes
-    5. Salir
-""")
-            choice = input("  Opcion [1-5]: ").strip()
+    3. TikTok (perfil + metricas por fecha)
+    4. Facebook (por URL de post)
+    5. Mergear CSVs existentes
+    6. Salir
+ """)
+            choice = input("  Opcion [1-6]: ").strip()
 
             if choice == "1":
                 all_results.extend(menu_instagram())
             elif choice == "2":
                 all_results.extend(menu_tiktok())
             elif choice == "3":
-                all_results.extend(menu_facebook())
+                all_results.extend(menu_tiktok_profile())
             elif choice == "4":
+                all_results.extend(menu_facebook())
+            elif choice == "5":
                 merge_csvs()
                 continue
-            elif choice in ("5", "q", "salir"):
+            elif choice in ("6", "q", "salir"):
                 break
             else:
                 print("  Opcion invalida")

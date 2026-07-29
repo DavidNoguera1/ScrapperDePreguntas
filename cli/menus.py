@@ -1,6 +1,6 @@
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from core.config import fmt_dia, fmt_mes, ask_yn
 from core.csv_handler import open_csv, append_csv, CSV_FILE
@@ -8,6 +8,17 @@ from core.logger import LOGGER
 from scrapers.instagram.scraper import InstagramScraper
 from scrapers.tiktok.scraper import TikTokScraper
 from scrapers.facebook.scraper import FacebookScraper
+
+
+def _parse_date_input(date_str):
+    """Parsea una fecha ingresada por el usuario (YYYY-MM-DD) a datetime con zona horaria UTC."""
+    if not date_str:
+        return None
+    try:
+        return datetime.strptime(date_str.strip(), "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except ValueError:
+        print(f"  [AVISO] Formato de fecha invalido: '{date_str}'. Usa YYYY-MM-DD.")
+        return None
 
 
 def menu_instagram():
@@ -69,10 +80,11 @@ def menu_instagram():
 
 def menu_tiktok():
     print("""
-  TikTok - Modos disponibles:
-    1. Automatico (Playwright) - Recomendado
-    2. Script para consola del navegador
-""")
+   TikTok - Modos disponibles:
+     1. Automatico (Playwright) - Recomendado
+     2. Script para consola del navegador
+     3. Scrapear perfil (videos + metricas por rango de fechas)
+ """)
 
     mode = input("  Modo [1]: ").strip() or "1"
 
@@ -87,6 +99,9 @@ def menu_tiktok():
         print("  4. Se descargara un CSV con los comentarios")
         input("\n  Presiona Enter para continuar...")
         return []
+
+    if mode == "3":
+        return menu_tiktok_profile()
 
     videos = input("\n  URLs de videos TikTok (separadas por coma): ").strip()
     urls = [u.strip() for u in videos.split(",") if u.strip()]
@@ -130,6 +145,75 @@ def menu_tiktok():
         except Exception as e:
             LOGGER.exception("Error extrayendo video de TikTok: %s", url)
             print(f"  [ERROR] {url}: {e}")
+
+    return all_results
+
+
+def menu_tiktok_profile():
+    """Modo: scrapear perfil de TikTok y extraer metricas de videos por rango de fechas."""
+    print("""
+   TikTok - Scrapeo de perfil (videos + metricas)
+   Extrae: titulo, likes, comentarios, guardados, compartidos
+ """)
+
+    username_input = input("  Usuario o URL del perfil de TikTok: ").strip()
+    if not username_input:
+        print("  Debes ingresar un usuario o URL.")
+        return []
+
+    username = username_input
+    if "tiktok.com" in username:
+        username = username.split("/@")[1].split("/")[0] if "/@" in username else username
+    username = username.lstrip("@").strip()
+
+    print("\n  Rango de fechas (formato YYYY-MM-DD):")
+    start_str = input("  Fecha inicio (Enter = sin limite): ").strip()
+    end_str = input("  Fecha fin (Enter = sin limite): ").strip()
+
+    start_date = _parse_date_input(start_str)
+    end_date = _parse_date_input(end_str)
+
+    if start_date and end_date and start_date > end_date:
+        print("  [AVISO] La fecha de inicio es posterior a la fecha fin. Se intercambian.")
+        start_date, end_date = end_date, start_date
+
+    visible = not ask_yn("  Ejecutar en segundo plano (headless)?", default=True)
+
+    open_csv()
+    print(f"\n  Iniciando scraper de perfil de TikTok: @{username}")
+    scraper = TikTokScraper(headless=not visible)
+    all_results = []
+
+    try:
+        videos = scraper.scrape_profile(username, start_date=start_date, end_date=end_date)
+        now = datetime.now()
+        for v in videos:
+            row = {
+                "Dia": fmt_dia(now),
+                "Cuenta": username,
+                "Red Social": "TikTok",
+                "Tipo de publicacion": "Video",
+                "Enlace": v.get("url", ""),
+                "Comentario": v.get("title", ""),
+                "Tema principal": "",
+                "Mes": fmt_mes(now),
+                "Titulo": v.get("title", ""),
+                "Likes": v.get("likes", 0),
+                "Comentarios": v.get("comments", 0),
+                "Guardados": v.get("saves", 0),
+                "Compartidos": v.get("shares", 0),
+                "Reproducciones": v.get("plays", 0),
+                "Fecha publicacion": datetime.fromtimestamp(
+                    v.get("create_time", 0), tz=timezone.utc
+                ).strftime("%Y-%m-%d %H:%M:%S") if v.get("create_time") else "",
+            }
+            all_results.append(row)
+            append_csv(row)
+
+        print(f"  [OK] {len(videos)} videos extraidos de @{username}")
+    except Exception as e:
+        LOGGER.exception("Error extrayendo perfil de TikTok: %s", username)
+        print(f"  [ERROR] @{username}: {e}")
 
     return all_results
 
