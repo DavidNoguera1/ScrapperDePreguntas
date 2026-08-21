@@ -90,7 +90,7 @@ def expand_comments(page):
 
         page.wait_for_timeout(1000)
 
-        if current_count > 0 and current_count == previous_count and clicked == 0:
+        if current_count == previous_count and clicked == 0:
             stable_rounds += 1
         else:
             stable_rounds = 0

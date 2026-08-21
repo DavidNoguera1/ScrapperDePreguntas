@@ -27,6 +27,15 @@ def _parse_cli_date(date_str, label, end_of_day=False):
         return None
 
 
+def _parse_instagram_cli_date(date_str):
+    try:
+        return datetime.strptime(date_str, "%d-%m-%Y").replace(tzinfo=timezone.utc)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"Fecha invalida: {date_str}. Usa el formato dd-mm-aaaa."
+        ) from exc
+
+
 def main():
     parser = argparse.ArgumentParser(description="Social Media Comment Scraper")
     parser.add_argument("--instagram", nargs="+", help="Cuentas de Instagram a scrapear")
@@ -50,6 +59,18 @@ def main():
     )
     parser.add_argument("--facebook", nargs="+", help="URLs de posts de Facebook")
     parser.add_argument("--months", type=int, default=2, help="Meses hacia atras (default: 2)")
+    parser.add_argument(
+        "--instagram-start-date",
+        type=_parse_instagram_cli_date,
+        default=None,
+        help="Fecha inicial de publicaciones de Instagram (dd-mm-aaaa)",
+    )
+    parser.add_argument(
+        "--instagram-end-date",
+        type=_parse_instagram_cli_date,
+        default=None,
+        help="Fecha final de publicaciones de Instagram (dd-mm-aaaa, inclusiva)",
+    )
     parser.add_argument(
         "--max-posts",
         type=int,
@@ -81,6 +102,15 @@ def main():
         help="Cerrar la sesion guardada de Instagram y borrar su archivo local",
     )
     args = parser.parse_args()
+
+    instagram_start_date = args.instagram_start_date
+    instagram_end_date = args.instagram_end_date
+    if instagram_end_date:
+        instagram_end_date = instagram_end_date.replace(
+            hour=23, minute=59, second=59, microsecond=999999
+        )
+    if instagram_start_date and instagram_end_date and instagram_start_date > instagram_end_date:
+        parser.error("--instagram-start-date no puede ser posterior a --instagram-end-date")
 
     setup_logging()
     print("=" * 55)
@@ -116,6 +146,8 @@ def main():
                 r = scraper.scrape_profile_comments(
                     acc,
                     months=args.months,
+                    start_date=instagram_start_date,
+                    end_date=instagram_end_date,
                     max_posts=args.max_posts,
                     only_questions=args.questions_only,
                     interest_only=args.interest_only,

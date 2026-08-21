@@ -29,8 +29,12 @@ subas a repositorios.
 ## Uso por CLI
 
 ```powershell
-python main.py --instagram cuenta1 cuenta2 --months 1 --interest-only --output competencia.csv
+python main.py --instagram cuenta1 --months 1 --interest-only --output competencia_cuenta1.csv
 ```
+
+Para análisis de competencia, ejecuta una cuenta por vez y espera a que
+termine antes de iniciar la siguiente. Así cada cuenta conserva su propio CSV
+y se evita usar la misma sesión de Instagram en paralelo.
 
 ### Opciones
 
@@ -38,6 +42,8 @@ python main.py --instagram cuenta1 cuenta2 --months 1 --interest-only --output c
 |---|---|---|
 | `--instagram` | — | Una o más cuentas separadas por espacio |
 | `--months` | 2 | Meses hacia atrás |
+| `--instagram-start-date` | — | Fecha inicial de publicaciones (`dd-mm-aaaa`) |
+| `--instagram-end-date` | hoy | Fecha final de publicaciones (`dd-mm-aaaa`, inclusiva) |
 | `--max-posts` | sin límite | Límite de posts/reels por cuenta (solo para pruebas) |
 | `--interest-only` / `--no-interest-only` | activado | Filtra comentarios de interés legal |
 | `--questions-only` / `--no-questions-only` | desactivado | Conserva solo preguntas |
@@ -46,12 +52,17 @@ python main.py --instagram cuenta1 cuenta2 --months 1 --interest-only --output c
 ### Ejemplos
 
 ```powershell
-# Recomendado para análisis de competencia
-python main.py --instagram tramitex.es --months 1 --interest-only --output competencia.csv
-python main.py --instagram abogadodeextranjeria --months 1 --interest-only --output competenciaPau.csv
+# Recomendado para análisis de competencia: una cuenta y un CSV por ejecución
+python main.py --instagram tramitex.es --instagram-start-date 14-08-2026 --instagram-end-date 21-08-2026 --questions-only --interest-only --output preguntas_tramitex_20260814_20260821.csv
+python main.py --instagram abogadodeextranjeria --instagram-start-date 14-08-2026 --instagram-end-date 21-08-2026 --questions-only --interest-only --output preguntas_abogadodeextranjeria_20260814_20260821.csv
+python main.py --instagram espanaabogados --instagram-start-date 14-08-2026 --instagram-end-date 21-08-2026 --questions-only --interest-only --output preguntas_espanaabogados_20260814_20260821.csv
+python main.py --instagram parainmigrantes.info --instagram-start-date 14-08-2026 --instagram-end-date 21-08-2026 --questions-only --interest-only --output preguntas_parainmigrantes_20260814_20260821.csv
 
 # Solo preguntas
 python main.py --instagram abogadodeextranjeria --months 1 --questions-only --output preguntas.csv
+
+# Rango exacto de fechas (formato dia-mes-año)
+python main.py --instagram abogadodeextranjeria --instagram-start-date 01-06-2026 --instagram-end-date 30-06-2026 --questions-only --output preguntas_junio.csv
 
 # Todos los comentarios (sin filtros)
 python main.py --instagram abogadodeextranjeria --months 2 --no-interest-only --no-questions-only --output todos.csv
@@ -69,9 +80,11 @@ python main.py
 Opción **1** del menú. Te guiará paso a paso.
 
 Recomendaciones para las preguntas:
-- **Meses hacia atrás**: `2`
+- **Fechas exactas**: escribe inicio y final en formato `dd-mm-aaaa`.
+- **Meses hacia atrás**: `2`, si dejas vacía la fecha inicial.
 - **Solo interés legal**: `Sí`
 - **Solo preguntas**: según el reporte
+- **Varias cuentas**: ejecuta un comando por cuenta para generar CSVs separados.
 - **Límite de posts**: dejar vacío
 - **Segundo plano (headless)**: `Sí`
 

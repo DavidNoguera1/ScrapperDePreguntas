@@ -9,6 +9,7 @@ from playwright.sync_api import sync_playwright
 from core import csv_handler as ch
 from core.config import CSV_HEADERS
 from core.filters import is_interesting_comment, is_user_comment, is_question
+from main import _parse_instagram_cli_date
 from scrapers.instagram.scraper import InstagramScraper
 from scrapers.instagram.extractors import extract_comments, extract_post_date
 from scrapers.tiktok.csv_rows import build_profile_video_row
@@ -45,6 +46,26 @@ class CsvTests(unittest.TestCase):
 
 
 class InstagramTests(unittest.TestCase):
+    def test_instagram_dates_use_dd_mm_yyyy_and_include_the_end_day(self):
+        start = _parse_instagram_cli_date("01-06-2026")
+        end = _parse_instagram_cli_date("30-06-2026").replace(
+            hour=23, minute=59, second=59, microsecond=999999
+        )
+
+        self.assertEqual(start.date().isoformat(), "2026-06-01")
+        self.assertTrue(
+            InstagramScraper._is_post_in_range(
+                datetime(2026, 6, 30, 23, 59, 59, tzinfo=timezone.utc),
+                start,
+                end,
+            )
+        )
+        self.assertFalse(
+            InstagramScraper._is_post_in_range(
+                datetime(2026, 7, 1, tzinfo=timezone.utc), start, end
+            )
+        )
+
     def test_short_questions_are_not_discarded(self):
         self.assertTrue(is_user_comment("¿NIE?"))
         self.assertFalse(is_user_comment("15h"))

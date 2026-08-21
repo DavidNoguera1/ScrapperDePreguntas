@@ -36,6 +36,8 @@ class InstagramScraper:
         self,
         username,
         months=1,
+        start_date=None,
+        end_date=None,
         max_posts=None,
         only_questions=False,
         interest_only=False,
@@ -48,6 +50,17 @@ class InstagramScraper:
             raise ValueError("months debe ser al menos 1.")
         if max_posts is not None and max_posts < 1:
             raise ValueError("max_posts debe ser positivo o None.")
+        if start_date and start_date.tzinfo is None:
+            raise ValueError("start_date debe incluir zona horaria.")
+        if end_date and end_date.tzinfo is None:
+            raise ValueError("end_date debe incluir zona horaria.")
+
+        effective_end_date = end_date or datetime.now(timezone.utc)
+        effective_start_date = start_date or (
+            effective_end_date - timedelta(days=30 * months)
+        )
+        if effective_start_date > effective_end_date:
+            raise ValueError("La fecha inicial no puede ser posterior a la fecha final.")
 
         self.logger.info(
             "Instagram | cuenta=%s | meses=%s | max_posts=%s | solo_preguntas=%s",
@@ -56,9 +69,14 @@ class InstagramScraper:
         self.logger.info(
             "Instagram | cuenta=%s | solo_interes=%s", username, interest_only
         )
+        self.logger.info(
+            "Instagram | cuenta=%s | fecha_inicio=%s | fecha_fin=%s",
+            username,
+            effective_start_date.date().isoformat(),
+            effective_end_date.date().isoformat(),
+        )
         results = []
         self._seen_comments = set()
-        cutoff = datetime.now(timezone.utc) - timedelta(days=30 * months)
 
         with sync_playwright() as playwright:
             browser = None
@@ -108,14 +126,15 @@ class InstagramScraper:
                             page=page,
                             post_url=link,
                             username=username,
-                            cutoff=cutoff,
+                            start_date=effective_start_date,
+                            end_date=effective_end_date,
                             only_questions=only_questions,
                             interest_only=interest_only,
                             results=results,
                             on_comment=on_comment,
                         )
                         self.logger.info(
-                            "Instagram | cuenta=%s | recurso=%s/%s | comentarios=%s | antiguo=%s | url=%s",
+                            "Instagram | cuenta=%s | recurso=%s/%s | comentarios=%s | fuera_rango=%s | url=%s",
                             username, index, len(post_links), count, old_post, link,
                         )
                     except Exception:
@@ -134,12 +153,18 @@ class InstagramScraper:
         )
         return results
 
+    @staticmethod
+    def _is_post_in_range(post_date, start_date, end_date):
+        """Permite procesar publicaciones sin fecha y filtra las fechas conocidas."""
+        return post_date is None or start_date <= post_date <= end_date
+
     def _scrape_post_comments(
         self,
         page,
         post_url,
         username,
-        cutoff,
+        start_date,
+        end_date,
         only_questions,
         interest_only,
         results,
@@ -153,7 +178,7 @@ class InstagramScraper:
             raise RuntimeError("Instagram invalidó la sesión durante la extracción.")
 
         post_date = extract_post_date(page)
-        if post_date and post_date < cutoff:
+        if not self._is_post_in_range(post_date, start_date, end_date):
             return 0, True
         if post_date is None:
             self.logger.warning(
