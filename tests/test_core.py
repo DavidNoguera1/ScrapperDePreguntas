@@ -8,12 +8,15 @@ from playwright.sync_api import sync_playwright
 
 from core import csv_handler as ch
 from core.config import CSV_HEADERS
-from core.filters import is_interesting_comment, is_user_comment, is_question
 from main import _parse_instagram_cli_date
 from scrapers.instagram.scraper import InstagramScraper
-from scrapers.instagram.extractors import extract_comments, extract_post_date
-from scrapers.tiktok.csv_rows import build_profile_video_row
-from scrapers.tiktok.extractors import filter_videos_by_date, parse_video_metrics
+from scrapers.instagram.extractors import extract_post_date
+from scrapers.instagram.comments.filters import (
+    is_interesting_comment,
+    is_question,
+    is_user_comment,
+)
+from scrapers.instagram.comments.extractors import extract_comments
 
 
 class CsvTests(unittest.TestCase):
@@ -151,56 +154,6 @@ class InstagramTests(unittest.TestCase):
 
         self.assertEqual(len(comments), 1)
         self.assertEqual(comments[0]["text"], "¿Puedo renovar mi residencia?")
-
-class TikTokProfileMetricsTests(unittest.TestCase):
-    def test_profile_row_uses_publication_day_and_duration(self):
-        published = datetime(2026, 7, 23, 14, 24, 36, tzinfo=timezone.utc)
-        metrics = parse_video_metrics({
-            "id": "123",
-            "desc": "Carrusel de prueba",
-            "createTime": int(published.timestamp()),
-            "author": {"uniqueId": "entretramites"},
-            "video": {"duration": 0},
-            "stats": {
-                "diggCount": 13,
-                "commentCount": 2,
-                "collectCount": 5,
-                "shareCount": 1,
-                "playCount": 2145,
-            },
-        })
-
-        row = build_profile_video_row("entretramites", metrics)
-
-        self.assertEqual(row["Dia"], "23-jul")
-        self.assertEqual(row["Mes"], "Julio")
-        self.assertEqual(row["duracion"], 0)
-        self.assertEqual(row["Tipo de publicacion"], "Carrusel")
-        self.assertEqual(row["Fecha publicacion"], "2026-07-23 14:24:36")
-
-    def test_end_date_at_midnight_includes_the_whole_day(self):
-        videos = [
-            {
-                "id": "included",
-                "create_time": int(
-                    datetime(2026, 7, 27, 23, 59, 59, tzinfo=timezone.utc).timestamp()
-                ),
-            },
-            {
-                "id": "excluded",
-                "create_time": int(
-                    datetime(2026, 7, 28, 0, 0, 0, tzinfo=timezone.utc).timestamp()
-                ),
-            },
-        ]
-
-        filtered = filter_videos_by_date(
-            videos,
-            start_date=datetime(2026, 4, 1, tzinfo=timezone.utc),
-            end_date=datetime(2026, 7, 27, tzinfo=timezone.utc),
-        )
-
-        self.assertEqual([video["id"] for video in filtered], ["included"])
 
 
 if __name__ == "__main__":

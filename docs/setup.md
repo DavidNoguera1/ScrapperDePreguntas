@@ -10,14 +10,6 @@ python -m playwright install chromium
 Estos comandos solo necesitan repetirse después de reinstalar Python, cambiar
 de computador o actualizar las dependencias.
 
-## Variables de entorno
-
-Copia `.env.example` a `.env` y completa los valores:
-
-| Variable | Obligatoria | Descripción |
-|---|---|---|
-| `FACEBOOK_COOKIES_FILE` | Solo para Facebook | Ruta al archivo JSON con cookies de Facebook |
-
 ## Formato de salida (CSV)
 
 Los archivos se guardan en `output/`. Los logs van en `output/logs/`.
@@ -26,8 +18,8 @@ Los archivos se guardan en `output/`. Los logs van en `output/logs/`.
 |---|---|
 | `Dia` | Fecha de la publicación. |
 | `Cuenta` | Cuenta analizada. |
-| `Red Social` | Instagram, TikTok o Facebook. |
-| `Tipo de publicacion` | Post, Reel o Video. |
+| `Red Social` | Instagram. |
+| `Tipo de publicacion` | Post o Reel. |
 | `Enlace` | URL original. |
 | `Comentario` | Texto extraído. |
 | `Tema principal` | Campo reservado para clasificación posterior. |
