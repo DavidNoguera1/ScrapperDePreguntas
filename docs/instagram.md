@@ -71,12 +71,20 @@ python main.py --instagram abogadodeextranjeria --months 2 --no-interest-only --
 python main.py --instagram tramitex.es --months 2 --max-posts 2 --interest-only --output validacion.csv
 ```
 
-## Detectar duracion de reels en CSVs (TimeDetection)
+## Detectar duracion y vistas de reels en CSVs (TimeDetection)
 
-Los CSV exportados desde Metricool no siempre incluyen la duracion de los
-reels. La funcion **TimeDetection** visita cada enlace `/reel/` con la sesion
-guardada y anade una columna `Duracion` (formato `M:SS`, ej. `1:35`) al final
-del archivo, respetando el resto de columnas y el formato original.
+Los CSV exportados desde Metricool no siempre incluyen la duracion ni las
+vistas de los reels. La funcion **TimeDetection** visita cada enlace `/reel/`
+con la sesion guardada y anade dos columnas al final del archivo, respetando
+el resto de columnas y el formato original:
+
+- `Duracion`: duracion del video en formato `M:SS` (ej. `1:35`).
+- `Vistas`: numero de reproducciones del reel (ej. `4458`).
+
+Las vistas se leen del JSON interno de la pagina embed del reel; si
+Instagram no publica el contador para un reel concreto (`video_view_count:
+null`, suele ocurrir cuando el creador oculta los contadores), la fila queda
+sin valor y se registra en el log.
 
 ```powershell
 # Un archivo
@@ -91,9 +99,10 @@ python main.py --time-detection data\Pauventura.csv --visible
 
 Notas:
 - Funciona con exports de Metricool que usen la columna `PostLink` o `URL`.
-- Es reanudable: las filas que ya tienen `Duracion` se omiten, asi que puedes
-  volver a ejecutar el comando para reintentar reels que fallaron.
-- Si un reel fue eliminado de Instagram, quedara sin duracion y el log
+- Es reanudable e independiente por columna: las filas que ya tienen un valor
+  se omiten, asi que puedes volver a ejecutar el comando para reintentar solo
+  lo que falto.
+- Si un reel fue eliminado de Instagram quedara sin ambos valores y el log
   registrara cuantos fueron actualizados por archivo (`reels_actualizados`).
 - Requiere sesion guardada: `python -m cli.import_session`.
 

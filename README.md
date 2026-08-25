@@ -1,6 +1,6 @@
 # Scraper de comentarios de Entrámites
 
-Extrae comentarios públicos de Instagram, TikTok y Facebook.
+Extrae comentarios públicos de Instagram.
 Los resultados se guardan como CSV compatible con Excel.
 
 ## Documentación
@@ -9,8 +9,6 @@ Los resultados se guardan como CSV compatible con Excel.
 |---|---|
 | [docs/setup.md](docs/setup.md) | Instalación, formato CSV, merge, tests |
 | [docs/instagram.md](docs/instagram.md) | Instagram: auth, CLI, filtros |
-| [docs/tiktok.md](docs/tiktok.md) | TikTok: CLI, menú, modo script |
-| [docs/facebook.md](docs/facebook.md) | Facebook: cookies, CLI |
 
 ## Comando recomendado
 
