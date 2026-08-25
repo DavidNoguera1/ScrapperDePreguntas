@@ -20,6 +20,23 @@ LOGGER = logging.getLogger(__name__)
 
 DURATION_COLUMN = "Duracion"
 
+# Columnas que pueden contener el enlace al contenido segun el export de Metricool.
+# Si ninguna existe, se busca cualquier celda con un enlace /reel/.
+LINK_COLUMNS = ("PostLink", "URL")
+
+
+def get_reel_link(row):
+    """Devuelve el enlace al reel de una fila, o cadena vacia si no tiene."""
+    for column in LINK_COLUMNS:
+        value = (row.get(column) or "").strip()
+        if value:
+            return value
+    for value in row.values():
+        value = (value or "").strip()
+        if value.startswith("http") and "/reel/" in value.split("?")[0]:
+            return value
+    return ""
+
 _EXTRACT_DURATION_JS = """() => {
     const videos = Array.from(document.querySelectorAll('video'));
     for (const video of videos) {
@@ -83,7 +100,7 @@ class TimeDetection:
 
         updated = 0
         for index, row in enumerate(rows, 1):
-            link = (row.get("PostLink") or "").strip()
+            link = get_reel_link(row)
             if "/reel/" not in link:
                 continue
             if row.get(DURATION_COLUMN, "").strip():
@@ -108,10 +125,10 @@ class TimeDetection:
             )
 
         self._write_csv(csv_path, fieldnames, rows, newline)
+        total_reels = sum(1 for r in rows if "/reel/" in get_reel_link(r))
         self.logger.info(
             "TimeDetection | archivo=%s | reels_actualizados=%s/%s",
-            csv_path.name, updated,
-            sum(1 for r in rows if "/reel/" in (r.get("PostLink") or "")),
+            csv_path.name, updated, total_reels,
         )
         return updated
 
